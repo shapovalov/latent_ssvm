@@ -1,6 +1,6 @@
 import numpy as np
 
-import cPickle
+import pickle
 
 from sklearn.cross_validation import train_test_split
 from edge_crf import EdgeCRF
@@ -17,13 +17,13 @@ from common import compute_error
 
 def syntetic():
     # train model on a single set
-    models_basedir = 'models/syntetic/'
-    crf = EdgeCRF(n_states=10, n_features=10, n_edge_features=2,
-                  inference_method='gco')
-    clf = OneSlackSSVM(crf, max_iter=10000, C=0.01, verbose=2,
+    #models_basedir = 'models/syntetic/'
+    #crf = EdgeCRF(n_states=10, n_features=10, n_edge_features=2,
+    #              inference_method='gco')
+    clf = OneSlackSSVM(peer, max_iter=10000, C=0.01, verbose=2,
                        tol=0.1, n_jobs=4, inference_cache=100)
 
-    X, Y = load_syntetic(1)
+    #X, Y = load_syntetic(1)
 
     x_train, x_test, y_train, y_test = train_test_split(X, Y,
                                                         train_size=100,
@@ -35,15 +35,15 @@ def syntetic():
 
     np.savetxt(models_basedir + 'syntetic_full.csv', clf.w)
     with open(models_basedir + 'syntetic_full' + '.pickle', 'w') as f:
-        cPickle.dump(clf, f)
+        pickle.dump(clf, f)
 
     y_pred = clf.predict(x_test)
 
-    print 'Error on test set: %f' % compute_error(y_test, y_pred)
-    print 'Score on test set: %f' % clf.score(x_test, y_test)
-    print 'Score on train set: %f' % clf.score(x_train, y_train)
-    print 'Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w)
-    print 'Elapsed time: %f s' % (stop - start)
+    print('Error on test set: %f' % compute_error(y_test, y_pred))
+    print('Score on test set: %f' % clf.score(x_test, y_test))
+    print('Score on train set: %f' % clf.score(x_train, y_train))
+    print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
+    print('Elapsed time: %f s' % (stop - start))
 
     return clf
 
@@ -54,7 +54,7 @@ def syntetic_test():
     full_labeled = np.array([2, 4, 10, 25, 100])
     train_size = 400
 
-    for dataset in xrange(1, 19):
+    for dataset in range(1, 19):
         X, Y = load_syntetic(dataset)
 
         for j, nfull in enumerate(full_labeled):
@@ -74,10 +74,10 @@ def syntetic_test():
 
                 results[dataset - 1, j] = compute_error(y_test, y_pred)
 
-                print 'dataset=%d, nfull=%d, error=%f' % (dataset, nfull,
-                                                          results[dataset - 1, j])
+                print('dataset=%d, nfull=%d, error=%f' % (dataset, nfull,
+                                                          results[dataset - 1, j]))
             except ValueError:
-                print 'dataset=%d, nfull=%d: Failed' % (dataset, nfull)
+                print('dataset=%d, nfull=%d: Failed' % (dataset, nfull))
 
     np.savetxt('results/syntetic/full_labeled.txt', results)
 
@@ -103,17 +103,17 @@ def msrc():
 
     np.savetxt(models_basedir + 'msrc_full.csv', clf.w)
     with open(models_basedir + 'msrc_full' + '.pickle', 'w') as f:
-        cPickle.dump(clf, f)
+        pickle.dump(clf, f)
 
     X, Y = load_msrc('test')
     Y = remove_areas(Y)
 
     Y_pred = clf.predict(X)
 
-    print 'Error on test set: %f' % compute_error(Y, Y_pred)
-    print 'Score on test set: %f' % clf.score(X, Y)
-    print 'Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w)
-    print 'Elapsed time: %f s' % (stop - start)
+    print('Error on test set: %f' % compute_error(Y, Y_pred))
+    print('Score on test set: %f' % clf.score(X, Y))
+    print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
+    print('Elapsed time: %f s' % (stop - start))
 
     return clf
 
@@ -154,13 +154,13 @@ def msrc_test():
 
         np.savetxt(models_basedir + 'test_model_%d.csv' % n_train, clf.w)
         with open(models_basedir + 'test_model_%d' % n_train + '.pickle', 'w') as f:
-            cPickle.dump(clf, f)
+            pickle.dump(clf, f)
 
         Ypred = clf.predict(Xtest)
 
         q = 1 - compute_error(Ytest, Ypred)
 
-        print 'n_train=%d, quality=%f, time=%f' % (n_train, q, stop - start)
+        print('n_train=%d, quality=%f, time=%f' % (n_train, q, stop - start))
         quality.append(q)
 
     np.savetxt('results/msrc/msrc_full.txt', quality)

@@ -97,9 +97,9 @@ class LatentSSVM(BaseSSVM):
         self.base_iter_history_.append(len(self.base_ssvm.primal_objective_curve_))
 
         try:
-            for iteration in xrange(self.latent_iter):
+            for iteration in range(self.latent_iter):
                 if self.verbose:
-                    print("LATENT SVM ITERATION %d" % iteration)
+                    print(("LATENT SVM ITERATION %d" % iteration))
                 # complete latent variables
                 Y_new = Parallel(n_jobs=self.n_jobs, verbose=0)(
                     delayed(latent)(self.model, x, y, w) for x, y in zip(X, Y))
@@ -112,7 +112,7 @@ class LatentSSVM(BaseSSVM):
                     iteration -= 1
                     break
                 if self.verbose:
-                    print("changes in H: %d" % np.sum(changes))
+                    print(("changes in H: %d" % np.sum(changes)))
                 self.changes_.append(np.sum(changes))
     
                 Y = Y_new
@@ -128,12 +128,12 @@ class LatentSSVM(BaseSSVM):
                 gap = self.primal_objective_curve_[-1] - self.objective_curve_[-1]
                 self.timestamps_.append(time() - start_time)
                 if self.verbose:
-                    print("|w-w_prev|: %f" % delta)
-                    print("Final primal objective: %f" % self.primal_objective_curve_[-1])
-                    print("Final cutting-plane objective: %f" % self.objective_curve_[-1])
-                    print("Duality gap: %f" % gap)
-                    print("Finished in %d iterations" % self.base_iter_history_[-1])
-                    print("Time elapsed: %f s" % (self.timestamps_[-1] - self.timestamps_[-2]))
+                    print(("|w-w_prev|: %f" % delta))
+                    print(("Final primal objective: %f" % self.primal_objective_curve_[-1]))
+                    print(("Final cutting-plane objective: %f" % self.objective_curve_[-1]))
+                    print(("Duality gap: %f" % gap))
+                    print(("Finished in %d iterations" % self.base_iter_history_[-1]))
+                    print(("Time elapsed: %f s" % (self.timestamps_[-1] - self.timestamps_[-2])))
                 if delta < self.tol:
                     if self.verbose:
                         print("weight vector did not change a lot, break")
@@ -158,11 +158,11 @@ class LatentSSVM(BaseSSVM):
         return Y_pred
 
     def staged_predict_latent(self, X):
-        for i in xrange(self.iter_done):
+        for i in range(self.iter_done):
             yield self._predict_from_iter(X, i)
 
     def staged_score(self, X, Y):
-        for i in xrange(self.iter_done):
+        for i in range(self.iter_done):
             Y_pred = self._predict_from_iter(X, i)
             losses = [self.model.loss(y, y_pred) / float(np.sum(y.weights))
                       for y, y_pred in zip(Y, Y_pred)]

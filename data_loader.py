@@ -8,15 +8,15 @@ def load_msrc(dataset):
     if dataset == 'train':
         filename = base + 'msrc/train_data.npz'
         npz = np.load(filename)
-        return zip(npz['Xunary_train'],
+        return list(zip(npz['Xunary_train'],
                    npz['edges_train'],
-                   npz['Xpair_train']), list(npz['Y_train'])
+                   npz['Xpair_train'])), list(npz['Y_train'])
     if dataset == 'test':
         filename = base + 'msrc/test_data.npz'
         npz = np.load(filename)
-        return zip(npz['Xunary_test'],
+        return list(zip(npz['Xunary_test'],
                    npz['edges_test'],
-                   npz['Xpair_test']), list(npz['Y_test'])
+                   npz['Xpair_test'])), list(npz['Y_test'])
 
 
 def load_syntetic(dataset):

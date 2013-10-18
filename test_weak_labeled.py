@@ -26,7 +26,7 @@ def test_syntetic_weak(mode):
     full_labeled = np.array([0, 2, 4, 10, 25, 100])
     train_size = 400
 
-    for dataset in xrange(1, 19):
+    for dataset in range(1, 19):
         X, H = load_syntetic(dataset)
         H = list(H)
         Y = weak_from_hidden(H)
@@ -51,7 +51,7 @@ def test_syntetic_weak(mode):
             x_test = X[(train_size + 1):]
             h_test = H[(train_size + 1):]
 
-            for i in xrange(nfull, len(h_train)):
+            for i in range(nfull, len(h_train)):
                 h_train[i] = None
 
             try:
@@ -64,12 +64,12 @@ def test_syntetic_weak(mode):
 
                 results[dataset - 1, j] = compute_error(h_test, h_pred)
 
-                print 'dataset=%d, nfull=%d, error=%f' % (dataset,
+                print('dataset=%d, nfull=%d, error=%f' % (dataset,
                                                           nfull,
-                                                          results[dataset - 1, j])
+                                                          results[dataset - 1, j]))
             except ValueError:
                 # bad QP
-                print 'dataset=%d, nfull=%d: Failed' % (dataset, nfull)
+                print('dataset=%d, nfull=%d: Failed' % (dataset, nfull))
 
     if mode == 'latent':
         np.savetxt('results/weak_labeled.csv', results, delimiter=',')
@@ -118,10 +118,10 @@ def syntetic_weak(n_full=10, n_train=200, C=0.1, dataset=1, latent_iter=15,
     test_score = clf.score(x_test, y_test)
     time_elapsed = stop - start
 
-    print 'Score on train set: %f' % train_score
-    print 'Score on test set: %f' % test_score
-    print 'Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w)
-    print 'Elapsed time: %f s' % time_elapsed
+    print('Score on train set: %f' % train_score)
+    print('Score on test set: %f' % test_score)
+    print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
+    print('Elapsed time: %f s' % time_elapsed)
 
     test_scores = []
     for score in clf.staged_score(x_test, y_test):
@@ -177,10 +177,10 @@ def msrc_weak(n_full=20, n_train=276, C=100, latent_iter=25,
     test_score = clf.score(Xtest, Ytest)
     time_elapsed = stop - start 
 
-    print 'Score on train set: %f' % train_score
-    print 'Score on test set: %f' % test_score
-    print 'Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w)
-    print 'Elapsed time: %f s' % time_elapsed
+    print('Score on train set: %f' % train_score)
+    print('Score on test set: %f' % test_score)
+    print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
+    print('Elapsed time: %f s' % time_elapsed)
 
     test_scores = []
     for score in clf.staged_score(Xtest, Ytest):
