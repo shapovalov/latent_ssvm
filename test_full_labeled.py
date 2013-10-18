@@ -14,12 +14,25 @@ from common import compute_error
 
 # testing with full labeled train sets
 
+def synthetic_edge_crf_factory():
+    return EdgeCRF(n_states=10, n_features=10, n_edge_features=2,
+                  inference_method='gco')
 
-def syntetic():
+def syntetic(peer):
     # train model on a single set
+<<<<<<< HEAD
     #models_basedir = 'models/syntetic/'
     #crf = EdgeCRF(n_states=10, n_features=10, n_edge_features=2,
     #              inference_method='gco')
+=======
+    models_basedir = 'models/syntetic/'
+    #crf = EdgeCRF(n_states=10, n_features=10, n_edge_features=2,
+    #              inference_method='gco')
+    #module = peer.config.get("model.factory.module")
+    #func = peer.config.get("model.factory.function")
+    #crf = getattr(__import__(module), func)()
+    
+>>>>>>> cbe9d739509205b1d915fd637a7de56c85a00844
     clf = OneSlackSSVM(peer, max_iter=10000, C=0.01, verbose=2,
                        tol=0.1, n_jobs=4, inference_cache=100)
 
