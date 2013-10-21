@@ -71,7 +71,7 @@ class EdgeCRF(GraphCRF):
         result = np.dot(features, unary_params.T)
         return result
 
-    def psi(self, x, y):
+    def psi(self, x, y, yhat=None):
         """Feature vector associated with instance (x, y).
 
         Feature representation psi, such that the energy of the configuration
@@ -94,6 +94,9 @@ class EdgeCRF(GraphCRF):
             Feature vector associated with state (x, y).
 
         """
+        if yhat is not None:
+            raise NotImplementedError('slack rescaling is not yet implemented')
+
         self._check_size_x(x)
         features, edges = self._get_features(x), self._get_edges(x)
         n_nodes = features.shape[0]

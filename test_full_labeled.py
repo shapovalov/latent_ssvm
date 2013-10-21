@@ -8,9 +8,9 @@ from pystruct.learners import OneSlackSSVM
 
 from time import time
 
-from data_loader import load_syntetic
-from data_loader import load_msrc
-from common import compute_error
+#from data_loader import load_syntetic
+#from data_loader import load_msrc
+#from common import compute_error
 
 # testing with full labeled train sets
 
@@ -29,12 +29,12 @@ def syntetic(peer):
 
     #X, Y = load_syntetic(1)
 
-    x_train, x_test, y_train, y_test = train_test_split(X, Y,
-                                                        train_size=100,
-                                                        random_state=179)
+    #x_train, x_test, y_train, y_test = train_test_split(X, Y,
+    #                                                    train_size=100,
+    #                                                    random_state=179)
 
     start = time()
-    clf.fit(x_train, y_train)
+    clf.fit()
     stop = time()
 
     np.savetxt(models_basedir + 'syntetic_full.csv', clf.w)
