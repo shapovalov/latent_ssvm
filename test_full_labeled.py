@@ -17,40 +17,56 @@ from time import time
 def synthetic_edge_crf_factory():
     return EdgeCRF(n_states=10, n_features=10, n_edge_features=2,
                   inference_method='gco')
-
-def syntetic(peer):
+                  
+# Train set is assumed to be in the input directory passed to Hama 
+def synteticTrain(peer):
     # train model on a single set
-    #models_basedir = 'models/syntetic/'
-    #crf = EdgeCRF(n_states=10, n_features=10, n_edge_features=2,
-    #              inference_method='gco')
-
     clf = OneSlackSSVM(peer, max_iter=10000, C=0.01, verbose=2,
                        tol=0.1, n_jobs=4, inference_cache=100)
-
-    #X, Y = load_syntetic(1)
-
-    #x_train, x_test, y_train, y_test = train_test_split(X, Y,
-    #                                                    train_size=100,
-    #                                                    random_state=179)
 
     start = time()
     clf.fit()
     stop = time()
 
+    models_basedir = peer.config.get("models.basedir")
+    
     np.savetxt(models_basedir + 'syntetic_full.csv', clf.w)
     with open(models_basedir + 'syntetic_full' + '.pickle', 'w') as f:
         pickle.dump(clf, f)
 
-    y_pred = clf.predict(x_test)
-
-    print('Error on test set: %f' % compute_error(y_test, y_pred))
-    print('Score on test set: %f' % clf.score(x_test, y_test))
-    print('Score on train set: %f' % clf.score(x_train, y_train))
-    print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
-    print('Elapsed time: %f s' % (stop - start))
-
     return clf
 
+def synteticTest(peer):
+    models_basedir = peer.config.get("models.basedir")
+    #with open(models_basedir + 'syntetic_full' + '.pickle', 'w') as f:
+    #    clf = pickle.load(f)
+    with open(models_basedir + 'syntetic_full.csv') as f:
+        w_str = f.readline()
+        
+    from MasterSlaveBSP import SlaveBSPTest  # just to test
+    self.squire = SlaveBSPTest(self.peer.config.get("master.index"))
+    self.squire.setup(self.peer)
+    
+    start = time()
+    self.squire.bsp(self.peer)
+    stop = time()
+    
+    Y_hat = []
+    Y_areas = []
+    for msg in self.peer.getAllMessages():
+        msgs = msg.split(";")
+        assert(len(msgs) == 2)   
+        Y_hat += [np.array([int(elem) for elem in y_hat.split()]) 
+                for y_hat in msgs[0].split(",")]
+        Y_areas += [np.array([int(elem) for elem in y_areas.split()])
+                for y_areas in msgs[1].split(",")]
+
+
+    print('Error on test set: %f' % compute_error(Y_hat, Y_areas))
+    #print('Score on test set: %f' % clf.score(x_test, y_test))
+    #print('Score on train set: %f' % clf.score(x_train, y_train))
+    #print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
+    print('Elapsed time: %f s' % (stop - start))
 
 def syntetic_test():
     # test model on different train set size & on different train sets
