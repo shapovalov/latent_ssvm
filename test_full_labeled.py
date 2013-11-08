@@ -10,7 +10,7 @@ from time import time
 
 #from data_loader import load_syntetic
 #from data_loader import load_msrc
-#from common import compute_error
+from common import compute_error
 
 # testing with full labeled train sets
 
@@ -30,10 +30,11 @@ def synteticTrain(peer):
 
     models_basedir = peer.config.get("models.basedir")
     
-    np.savetxt(models_basedir + 'syntetic_full.csv', clf.w)
-    with open(models_basedir + 'syntetic_full' + '.pickle', 'w') as f:
-        pickle.dump(clf, f)
+    np.savetxt(models_basedir + 'syntetic_full.csv', clf.w[None], delimiter=' ')
+    #with open(models_basedir + 'syntetic_full' + '.pickle', 'w') as f:
+    #    pickle.dump(clf, f)
 
+    peer.log('Elapsed time: %f s' % (stop - start))
     return clf
 
 def synteticTest(peer):
@@ -42,18 +43,22 @@ def synteticTest(peer):
     #    clf = pickle.load(f)
     with open(models_basedir + 'syntetic_full.csv') as f:
         w_str = f.readline()
+    assert(w_str)
         
     from MasterSlaveBSP import SlaveBSPTest  # just to test
-    self.squire = SlaveBSPTest(self.peer.config.get("master.index"))
-    self.squire.setup(self.peer)
+    squire = SlaveBSPTest(peer.config.get("master.index"))
+    squire.setup(peer)
+
+    for peerName in peer.getAllPeerNames():
+          peer.send(peerName, w_str) 
     
     start = time()
-    self.squire.bsp(self.peer)
+    squire.bsp(peer)
     stop = time()
     
     Y_hat = []
     Y_areas = []
-    for msg in self.peer.getAllMessages():
+    for msg in peer.getAllMessages():
         msgs = msg.split(";")
         assert(len(msgs) == 2)   
         Y_hat += [np.array([int(elem) for elem in y_hat.split()]) 
@@ -62,11 +67,11 @@ def synteticTest(peer):
                 for y_areas in msgs[1].split(",")]
 
 
-    print('Error on test set: %f' % compute_error(Y_hat, Y_areas))
+    peer.log('Error on test set: %f' % compute_error(Y_hat, Y_areas))
     #print('Score on test set: %f' % clf.score(x_test, y_test))
     #print('Score on train set: %f' % clf.score(x_train, y_train))
     #print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
-    print('Elapsed time: %f s' % (stop - start))
+    peer.log('Elapsed time: %f s' % (stop - start))
 
 def syntetic_test():
     # test model on different train set size & on different train sets
