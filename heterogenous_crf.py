@@ -8,6 +8,8 @@ from pystruct.models.base import StructuredModel
 from pystruct.inference.inference_methods import inference_dispatch
 from pystruct.models.utils import loss_augment_weighted_unaries
 
+from sklearn.utils.extmath import safe_sparse_dot
+
 from label import Label
 
 
@@ -54,12 +56,12 @@ class HCRF(StructuredModel):
         # forbid h that is incompoatible with y
         # by modifying unary params
         other_states = list(self.all_states - set(y.weak))
-        unary_potentials[:, other_states] = -10
+        unary_potentials[:, other_states] = -1000
         pairwise_potentials = self._get_pairwise_potentials(x, w)
         edges = self._get_edges(x)
         h = inference_dispatch(unary_potentials, pairwise_potentials, edges,
                                self.inference_method, relaxed=False, n_iter=self.n_iter)
-        return Label(h, None, y.weights, False)
+        return Label(h, y.weak, y.weights, False)
 
     def _get_pairwise_potentials(self, x, w):
         """Computes pairwise potentials for x and w.
@@ -109,7 +111,7 @@ class HCRF(StructuredModel):
         features, edges = self._get_features(x), self._get_edges(x)
         unary_params = w[:self.n_states * self.n_features].reshape(
             self.n_states, self.n_features)
-        result = np.dot(features, unary_params.T)
+        result = safe_sparse_dot(features, unary_params.T, dense_output=True)
         return result
 
     def psi(self, x, y):
@@ -130,7 +132,7 @@ class HCRF(StructuredModel):
 
         pw = np.sum(edge_features[y[edges[:, 0]] == y[edges[:, 1]]], axis=0)
 
-        unaries_acc = np.dot(unary_marginals.T, features)
+        unaries_acc = safe_sparse_dot(unary_marginals.T, features, dense_output=True)
 
         psi_vector = np.hstack([unaries_acc.ravel(), pw.ravel()])
         if not full_labeled:

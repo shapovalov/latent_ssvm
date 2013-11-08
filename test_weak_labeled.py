@@ -12,13 +12,13 @@ from data_loader import load_msrc
 from common import compute_error
 from common import weak_from_hidden
 from label import Label
-from results import ExperimentResult
+from results import ExperimentResult, experiment
 
 # testing with weakly labeled train set
 
 
 def test_syntetic_weak(mode):
-    # needs refactoring
+    # needs refactoring; does not work
     # Syntetic data
     # test latentSSVM on different train set sizes & on different train sets
     # mode can be 'heterogenous' or 'latent'
@@ -80,6 +80,7 @@ def test_syntetic_weak(mode):
 
 
 def split_test_train(X, Y, n_full, n_train):
+    # splitting for syntetic dataset
     x_train = X[:n_train]
     y_train = [Label(y[:, 0].astype(np.int32), None, y[:, 1], True)
                for y in Y[:n_full]]
@@ -95,18 +96,24 @@ def split_test_train(X, Y, n_full, n_train):
     return x_train, y_train, y_train_full, x_test, y_test
 
 
+@experiment
 def syntetic_weak(n_full=10, n_train=200, C=0.1, dataset=1, latent_iter=15,
                   max_iter=500, inner_tol=0.001, outer_tol=0.01, min_changes=0,
-                  initialize=True, alpha=0.1, n_inference_iter=5):
+                  initialize=True, alpha=0.1, n_inference_iter=5,
+                  inactive_window=50, inactive_threshold=1e-5):
+    # save parameters as meta
+    meta_data = locals()
+
     crf = HCRF(n_states=10, n_features=10, n_edge_features=2, alpha=alpha,
-               inference_method='gco')
+               inference_method='gco', n_iter=n_inference_iter)
     base_clf = OneSlackSSVM(crf, max_iter=max_iter, C=C, verbose=0,
-                            tol=inner_tol, n_jobs=4, inference_cache=100)
+                            tol=inner_tol, n_jobs=4, inference_cache=100,
+                            inactive_window=inactive_window,
+                            inactive_threshold=inactive_threshold)
     clf = LatentSSVM(base_clf, latent_iter=latent_iter, verbose=2,
                      tol=outer_tol, min_changes=min_changes, n_jobs=4)
 
     X, Y = load_syntetic(dataset)
-
     x_train, y_train, y_train_full, x_test, y_test = \
         split_test_train(X, Y, n_full, n_train)
 
@@ -128,36 +135,31 @@ def syntetic_weak(n_full=10, n_train=200, C=0.1, dataset=1, latent_iter=15,
     for score in clf.staged_score(x_test, y_test):
         test_scores.append(score)
 
+    train_scores = []
+    for score in clf.staged_score(x_train, y_train_full):
+        train_scores.append(score)
+
     exp_data = {}
     exp_data['test_scores'] = np.array(test_scores)
+    exp_data['train_scores'] = np.array(train_scores)
     exp_data['changes'] = clf.changes_
     exp_data['w_history'] = clf.w_history_
     exp_data['delta_history'] = clf.delta_history_
     exp_data['primal_objective_curve'] = clf.primal_objective_curve_
     exp_data['objective_curve'] = clf.objective_curve_
-    exp_data['timestamps'] = clf.time_stamps_
-    exp_data['base_iter_hitory'] = clf.base_iter_history_
+    exp_data['timestamps'] = clf.timestamps_
+    exp_data['qp_timestamps'] = clf.qp_timestamps_
+    exp_data['inference_timestamps'] = clf.inference_timestamps_
+    exp_data['number_of_iterations'] = clf.number_of_iterations_
+    exp_data['number_of_constraints'] = clf.number_of_constraints_
+    exp_data['calls_to_inference'] = clf.calls_to_inference_
 
-    meta_data = {}
     meta_data['dataset_name'] = 'syntetic'
     meta_data['annotation_type'] = 'image-level labelling'
     meta_data['label_type'] = 'full+weak'
     meta_data['train_score'] = train_score
     meta_data['test_score'] = test_score
     meta_data['time_elapsed'] = time_elapsed
-
-    meta_data['n_inference_iter'] = n_inference_iter
-    meta_data['n_full'] = n_full
-    meta_data['n_train'] = n_train
-    meta_data['C'] = C
-    meta_data['dataset'] = dataset
-    meta_data['latent_iter'] = latent_iter
-    meta_data['max_iter'] = max_iter
-    meta_data['inner_tol'] = inner_tol
-    meta_data['outer_tol'] = outer_tol
-    meta_data['alpha'] = alpha
-    meta_data['min_changes'] = min_changes
-    meta_data['initialize'] = initialize
 
     return ExperimentResult(exp_data, meta_data)
 
@@ -184,13 +186,19 @@ def msrc_load(n_full, n_train):
     return Xtrain, Ytrain, Ytrain_full, Xtest, Ytest
 
 
+@experiment
 def msrc_weak(n_full=20, n_train=276, C=100, latent_iter=25,
               max_iter=500, inner_tol=0.001, outer_tol=0.01, min_changes=0,
-              initialize=True, alpha=0.1, n_inference_iter=5):
+              initialize=True, alpha=0.1, n_inference_iter=5,
+              inactive_window=50, inactive_threshold=1e-5):
+    meta_data = locals()
+
     crf = HCRF(n_states=24, n_features=2028, n_edge_features=4, alpha=alpha,
                inference_method='gco', n_iter=n_inference_iter)
-    base_clf = OneSlackSSVM(crf, max_iter=max_iter, C=C, verbose=2,
-                            tol=inner_tol, n_jobs=4, inference_cache=10)
+    base_clf = OneSlackSSVM(crf, max_iter=max_iter, C=C, verbose=0,
+                            tol=inner_tol, n_jobs=4, inference_cache=0,
+                            inactive_window=inactive_window,
+                            inactive_threshold=inactive_threshold)
     clf = LatentSSVM(base_clf, latent_iter=latent_iter, verbose=2,
                      tol=outer_tol, min_changes=min_changes, n_jobs=4)
 
@@ -215,15 +223,24 @@ def msrc_weak(n_full=20, n_train=276, C=100, latent_iter=25,
     for score in clf.staged_score(Xtest, Ytest):
         test_scores.append(score)
 
+    train_scores = []
+    for score in clf.staged_score(Xtrain, Ytrain_full):
+        train_scores.append(score)
+
     exp_data = {}
     exp_data['test_scores'] = np.array(test_scores)
+    exp_data['train_scores'] = np.array(train_scores)
     exp_data['changes'] = clf.changes_
     exp_data['w_history'] = clf.w_history_
     exp_data['delta_history'] = clf.delta_history_
     exp_data['primal_objective_curve'] = clf.primal_objective_curve_
     exp_data['objective_curve'] = clf.objective_curve_
-    exp_data['timestamps'] = clf.time_stamps_
-    exp_data['base_iter_hitory'] = clf.base_iter_history_
+    exp_data['timestamps'] = clf.timestamps_
+    exp_data['qp_timestamps'] = clf.qp_timestamps_
+    exp_data['inference_timestamps'] = clf.inference_timestamps_
+    exp_data['number_of_iterations'] = clf.number_of_iterations_
+    exp_data['number_of_constraints'] = clf.number_of_constraints_
+    exp_data['calls_to_inference'] = clf.calls_to_inference_
 
     meta_data = {}
     meta_data['dataset_name'] = 'msrc'
@@ -232,17 +249,5 @@ def msrc_weak(n_full=20, n_train=276, C=100, latent_iter=25,
     meta_data['train_score'] = train_score
     meta_data['test_score'] = test_score
     meta_data['time_elapsed'] = time_elapsed
-
-    meta_data['n_inference_iter'] = n_inference_iter
-    meta_data['n_full'] = n_full
-    meta_data['n_train'] = n_train
-    meta_data['C'] = C
-    meta_data['latent_iter'] = latent_iter
-    meta_data['max_iter'] = max_iter
-    meta_data['inner_tol'] = inner_tol
-    meta_data['outer_tol'] = outer_tol
-    meta_data['alpha'] = alpha
-    meta_data['min_changes'] = min_changes
-    meta_data['initialize'] = initialize
 
     return ExperimentResult(exp_data, meta_data)

@@ -8,7 +8,7 @@ import numpy as np
 from time import time
 
 from pystruct.learners.ssvm import BaseSSVM
-from sklearn.externals.joblib import Parallel, delayed
+from joblib import Parallel, delayed
 
 from common import latent
 
@@ -67,12 +67,16 @@ class LatentSSVM(BaseSSVM):
         constraints = None
         self.w_history_ = []
         self.delta_history_ = []
-        self.base_iter_history_ = []
+        self.number_of_iterations_ = []
         self.changes_ = []
         start_time = time()
         self.timestamps_ = [0.0]
+        self.qp_timestamps_ = []
+        self.inference_timestamps_ = []
+        self.number_of_constraints_ = []
         self.objective_curve_ = []
         self.primal_objective_curve_ = []
+        self.calls_to_inference_ = []
 
         # all data is fully labeled, quit
         if np.all([y.full_labeled for y in Y]):
@@ -83,7 +87,7 @@ class LatentSSVM(BaseSSVM):
             self.timestamps_ = np.array([time() - start_time])
             self.primal_objective_curve_ = np.array([self.base_ssvm.primal_objective_curve_[-1]])
             self.objective_curve_ = np.array([self.base_ssvm.objective_curve_[-1]])
-            self.base_iter_history_ = np.array([len(self.base_ssvm.primal_objective_curve_)])
+            self.number_of_iterations_ = np.array([len(self.base_ssvm.primal_objective_curve_)])
             self.iter_done = 1
             return
 
@@ -97,19 +101,35 @@ class LatentSSVM(BaseSSVM):
             # we have some fully labeled examples, others are somehow initialized
             X1, Y1 = X, Y
 
+        start_t = time()
         self.base_ssvm.fit(X1, Y1)
+        stop_t = time()
         w = self.base_ssvm.w
         self.w_history_.append(w)
         self.objective_curve_.append(self.base_ssvm.objective_curve_[-1])
+        self.calls_to_inference_.append(self.base_ssvm.model.inference_calls)
+        self.base_ssvm.model.inference_calls = 0
         self.primal_objective_curve_.append(self.base_ssvm.primal_objective_curve_[-1])
-        self.base_iter_history_.append(len(self.base_ssvm.primal_objective_curve_))
+        self.number_of_iterations_.append(len(self.base_ssvm.primal_objective_curve_))
+        gap = self.primal_objective_curve_[-1] - self.objective_curve_[-1]
+        self.number_of_constraints_.append(len(self.base_ssvm.constraints_))
+
+        print("Final primal objective: %f" % self.primal_objective_curve_[-1])
+        print("Final cutting-plane objective: %f" % self.objective_curve_[-1])
+        print("Duality gap: %f" % gap)
+        print("Finished in %d iterations" % self.number_of_iterations_[-1])
+        print("Time elapsed: %f s" % (stop_t - start_t))
+        print("Time spent by QP: %f s" % self.base_ssvm.qp_time)
+        print("Time spent by inference: %f s" % self.base_ssvm.inference_time)
+        print("Number of constraints: %d" % self.number_of_constraints_[-1])
+        print("----------------------------------------")
 
         try:
             for iteration in range(self.latent_iter):
                 if self.verbose:
                     print(("LATENT SVM ITERATION %d" % iteration))
                 # complete latent variables
-                Y_new = Parallel(n_jobs=self.n_jobs, verbose=0)(
+                Y_new = Parallel(n_jobs=self.n_jobs, verbose=0, max_nbytes=1e8)(
                     delayed(latent)(self.model, x, y, w) for x, y in zip(X, Y))
     
                 changes = [np.any(y_new.full != y.full) for y_new, y in zip(Y_new, Y)]
@@ -124,24 +144,36 @@ class LatentSSVM(BaseSSVM):
                 self.changes_.append(np.sum(changes))
     
                 Y = Y_new
+                #if iteration > 1:
+                #    self.base_ssvm.fit(X, Y, initialize=False, warm_start='soft')
+                #else:
                 self.base_ssvm.fit(X, Y, initialize=False)
 
                 w = self.base_ssvm.w
                 self.objective_curve_.append(self.base_ssvm.objective_curve_[-1])
                 self.primal_objective_curve_.append(self.base_ssvm.primal_objective_curve_[-1])
-                self.base_iter_history_.append(len(self.base_ssvm.primal_objective_curve_))
+                self.number_of_iterations_.append(len(self.base_ssvm.primal_objective_curve_))
                 self.w_history_.append(w)
                 delta = np.linalg.norm(self.w_history_[-1] - self.w_history_[-2])
                 self.delta_history_.append(delta)
                 gap = self.primal_objective_curve_[-1] - self.objective_curve_[-1]
                 self.timestamps_.append(time() - start_time)
+                self.qp_timestamps_.append(self.base_ssvm.qp_time)
+                self.inference_timestamps_.append(self.base_ssvm.inference_time)
+                self.number_of_constraints_.append(len(self.base_ssvm.constraints_))
+                self.calls_to_inference_.append(self.base_ssvm.model.inference_calls)
+                self.base_ssvm.model.inference_calls= 0
                 if self.verbose:
-                    print(("|w-w_prev|: %f" % delta))
-                    print(("Final primal objective: %f" % self.primal_objective_curve_[-1]))
-                    print(("Final cutting-plane objective: %f" % self.objective_curve_[-1]))
-                    print(("Duality gap: %f" % gap))
-                    print(("Finished in %d iterations" % self.base_iter_history_[-1]))
-                    print(("Time elapsed: %f s" % (self.timestamps_[-1] - self.timestamps_[-2])))
+                    print("|w-w_prev|: %f" % delta)
+                    print("Final primal objective: %f" % self.primal_objective_curve_[-1])
+                    print("Final cutting-plane objective: %f" % self.objective_curve_[-1])
+                    print("Duality gap: %f" % gap)
+                    print("Finished in %d iterations" % self.number_of_iterations_[-1])
+                    print("Time elapsed: %f s" % (self.timestamps_[-1] - self.timestamps_[-2]))
+                    print("Time spent by QP: %f s" % self.base_ssvm.qp_time)
+                    print("Time spent by inference: %f s" % self.base_ssvm.inference_time)
+                    print("Number of constraints: %d" % self.number_of_constraints_[-1])
+                    print("----------------------------------------")
                 if delta < self.tol:
                     if self.verbose:
                         print("weight vector did not change a lot, break")
@@ -153,9 +185,13 @@ class LatentSSVM(BaseSSVM):
         self.delta_history_ = np.array(self.delta_history_)
         self.changes_ = np.array(self.changes_)
         self.timestamps_ = np.array(self.timestamps_)
+        self.qp_timestamps_ = np.array(self.qp_timestamps_)
+        self.inference_timestamps_ = np.array(self.inference_timestamps_)
         self.primal_objective_curve_ = np.array(self.primal_objective_curve_)
         self.objective_curve_ = np.array(self.objective_curve_)
-        self.base_iter_history_ = np.array(self.base_iter_history_)
+        self.number_of_iterations_ = np.array(self.number_of_iterations_)
+        self.number_of_constraints_ = np.array(self.number_of_constraints_)
+        self.calls_to_inference_ = np.array(self.calls_to_inference_)
         self.iter_done = iteration + 1
 
     def _predict_from_iter(self, X, i):
