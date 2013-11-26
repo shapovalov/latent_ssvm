@@ -19,7 +19,7 @@ def load_syntetic_data(dataset):
     Y = []
     edges = pairwise[0:760, 1:3].astype(np.int32) - 1
 
-    for i in xrange(800):
+    for i in range(800):
         node_features = unary[(i * 400):((i + 1) * 400), 2:]
         edge_features = pairwise[(i * 760):((i + 1) * 760), 3:]
         X_structured.append((node_features, edges, edge_features))
@@ -124,7 +124,7 @@ def load_msrc_data():
     N_test = 532
 
     cpos = 0
-    for i in xrange(1, N_train + 1):
+    for i in range(1, N_train + 1):
         ppos = cpos
         while cpos < labels.shape[0] and labels[cpos, 0] == i:
             cpos += 1
@@ -132,7 +132,7 @@ def load_msrc_data():
         Xunary_train.append(unary_train[ppos:cpos, 2:])
 
     pbegin = cpos
-    for i in xrange(N_train + 1, N_test + 1):
+    for i in range(N_train + 1, N_test + 1):
         ppos = cpos
         while cpos < labels.shape[0] and labels[cpos, 0] == i:
             cpos += 1
@@ -140,14 +140,14 @@ def load_msrc_data():
         Xunary_test.append(unary_test[(ppos-pbegin):(cpos-pbegin), 2:])
 
     cpos = 0
-    for i in xrange(1, N_train + 1):
+    for i in range(1, N_train + 1):
         ppos = cpos
         while cpos < pairwise.shape[0] and pairwise[cpos, 0] == i:
             cpos += 1
         edges_train.append(pairwise[ppos:cpos, 1:3].astype(np.int32) - 1)
         Xpair_train.append(pairwise[ppos:cpos, 3:])
 
-    for i in xrange(N_train + 1, N_test + 1):
+    for i in range(N_train + 1, N_test + 1):
         ppos = cpos
         while cpos < pairwise.shape[0] and pairwise[cpos, 0] == i:
             cpos += 1
@@ -175,7 +175,7 @@ def save_msrc_to_npz():
 
 def save_syntetic_to_npz():
     # save data into npz files to load it fast later
-    for i in xrange(1, 21):
+    for i in range(1, 21):
         X, Y = load_syntetic_data(i)
         filename = base + 'features%d' % i
         np.savez(filename, X=X, Y=Y)

@@ -12,17 +12,17 @@ def load_msrc(dataset):
         npz = np.load(filename)
         unary = npz['Xunary_train']
         unary = [sps.csr_matrix(x) for x in unary]
-        return zip(unary,
+        return list(zip(unary,
                    npz['edges_train'],
-                   npz['Xpair_train']), list(npz['Y_train'])
+                   npz['Xpair_train'])), list(npz['Y_train'])
     if dataset == 'test':
         filename = base + 'msrc/test_data.npz'
         npz = np.load(filename)
         unary = npz['Xunary_test']
         unary = [sps.csr_matrix(x) for x in unary]
-        return zip(unary,
+        return list(zip(unary,
                    npz['edges_test'],
-                   npz['Xpair_test']), list(npz['Y_test'])
+                   npz['Xpair_test'])), list(npz['Y_test'])
 
 def load_msrc_weak_train_mask(filename, n):
     f = h5py.File(filename, 'r', libver='latest')
@@ -89,7 +89,7 @@ def load_msrc_hdf(filename):
     del raw_edges
     del raw_pairwise
 
-    X = zip(unaries, edges, pairwise)
+    X = list(zip(unaries, edges, pairwise))
     Y = labels
 
     Xtrain = X[:276]

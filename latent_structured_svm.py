@@ -119,14 +119,14 @@ class LatentSSVM(BaseSSVM):
             gap = self.primal_objective_curve_[-1] - self.objective_curve_[-1]
 
             if self.verbose:
-                print("Final primal objective: %f" % self.primal_objective_curve_[-1])
-                print("Final cutting-plane objective: %f" % self.objective_curve_[-1])
-                print("Duality gap: %f" % gap)
-                print("Finished in %d iterations" % self.number_of_iterations_[-1])
-                print("Time elapsed: %f s" % (self.timestamps_[-1]))
-                print("Time spent by QP: %f s" % self.base_ssvm.qp_time)
-                print("Time spent by inference: %f s" % self.base_ssvm.inference_time)
-                print("Number of constraints: %d" % self.number_of_constraints_[-1])
+                print(("Final primal objective: %f" % self.primal_objective_curve_[-1]))
+                print(("Final cutting-plane objective: %f" % self.objective_curve_[-1]))
+                print(("Duality gap: %f" % gap))
+                print(("Finished in %d iterations" % self.number_of_iterations_[-1]))
+                print(("Time elapsed: %f s" % (self.timestamps_[-1])))
+                print(("Time spent by QP: %f s" % self.base_ssvm.qp_time))
+                print(("Time spent by inference: %f s" % self.base_ssvm.inference_time))
+                print(("Number of constraints: %d" % self.number_of_constraints_[-1]))
                 print("----------------------------------------")
 
             begin = 0
@@ -135,10 +135,11 @@ class LatentSSVM(BaseSSVM):
             w = self.w_history_[-1]
             start_time = time()
 
+        iteration =- 1
         try:
-            for iteration in xrange(begin, self.latent_iter):
+            for iteration in range(begin, self.latent_iter):
                 if self.verbose:
-                    print("LATENT SVM ITERATION %d" % iteration)
+                    print(("LATENT SVM ITERATION %d" % iteration))
                 # complete latent variables
                 Y_new = Parallel(n_jobs=self.n_jobs, verbose=0, max_nbytes=1e8)(
                     delayed(latent)(self.model, x, y, w) for x, y in zip(X, Y))
@@ -151,7 +152,7 @@ class LatentSSVM(BaseSSVM):
                     iteration -= 1
                     break
                 if self.verbose:
-                    print("changes in H: %d" % np.sum(changes))
+                    print(("changes in H: %d" % np.sum(changes)))
                 self.number_of_changes_.append(np.sum(changes))
     
                 Y = Y_new
@@ -171,16 +172,16 @@ class LatentSSVM(BaseSSVM):
                 q_delta = np.abs(self.objective_curve_[-1] - self.objective_curve_[-2])
 
                 if self.verbose:
-                    print("|w-w_prev|: %f" % delta)
-                    print("|Q-Q_prev|: %f" % q_delta)
-                    print("Final primal objective: %f" % self.primal_objective_curve_[-1])
-                    print("Final cutting-plane objective: %f" % self.objective_curve_[-1])
-                    print("Duality gap: %f" % gap)
-                    print("Finished in %d iterations" % self.number_of_iterations_[-1])
-                    print("Time elapsed: %f s" % (self.timestamps_[-1] - self.timestamps_[-2]))
-                    print("Time spent by QP: %f s" % self.base_ssvm.qp_time)
-                    print("Time spent by inference: %f s" % self.base_ssvm.inference_time)
-                    print("Number of constraints: %d" % self.number_of_constraints_[-1])
+                    print(("|w-w_prev|: %f" % delta))
+                    print(("|Q-Q_prev|: %f" % q_delta))
+                    print(("Final primal objective: %f" % self.primal_objective_curve_[-1]))
+                    print(("Final cutting-plane objective: %f" % self.objective_curve_[-1]))
+                    print(("Duality gap: %f" % gap))
+                    print(("Finished in %d iterations" % self.number_of_iterations_[-1]))
+                    print(("Time elapsed: %f s" % (self.timestamps_[-1] - self.timestamps_[-2])))
+                    print(("Time spent by QP: %f s" % self.base_ssvm.qp_time))
+                    print(("Time spent by inference: %f s" % self.base_ssvm.inference_time))
+                    print(("Number of constraints: %d" % self.number_of_constraints_[-1]))
                     print("----------------------------------------")
 
                 if q_delta < self.tol:
@@ -238,11 +239,11 @@ class LatentSSVM(BaseSSVM):
         return Y_pred
 
     def staged_predict_latent(self, X):
-        for i in xrange(self.iter_done):
+        for i in range(self.iter_done):
             yield self._predict_from_iter(X, i)
 
     def staged_score(self, X, Y):
-        for i in xrange(self.iter_done):
+        for i in range(self.iter_done):
             Y_pred = self._predict_from_iter(X, i)
             losses = [self.model.loss(y, y_pred) / float(np.sum(y.weights))
                       for y, y_pred in zip(Y, Y_pred)]

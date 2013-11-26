@@ -2,6 +2,7 @@ import numpy as np
 
 #from pystruct.learners import OneSlackSSVM
 from one_slack_ssvm import OneSlackSSVM
+from frankwolfe_ssvm import FrankWolfeSSVM
 from time import time
 
 from latent_crf import LatentCRF
@@ -14,9 +15,9 @@ from data_loader import load_msrc_weak_train_mask
 from common import compute_error
 from common import weak_from_hidden
 from label import Label
-from results import ExperimentResult, experiment
+#from results import ExperimentResult, experiment
 
-MSRC_DATA_PATH = '../data/msrc/msrc.hdf5'
+MSRC_DATA_PATH = '../../data/MSRC-21/dima/msrc.hdf5'
 
 # testing with weakly labeled train set
 
@@ -30,7 +31,7 @@ def test_syntetic_weak(mode):
     full_labeled = np.array([0, 2, 4, 10, 25, 100])
     train_size = 400
 
-    for dataset in xrange(1, 19):
+    for dataset in range(1, 19):
         X, H = load_syntetic(dataset)
         H = list(H)
         Y = weak_from_hidden(H)
@@ -55,7 +56,7 @@ def test_syntetic_weak(mode):
             x_test = X[(train_size + 1):]
             h_test = H[(train_size + 1):]
 
-            for i in xrange(nfull, len(h_train)):
+            for i in range(nfull, len(h_train)):
                 h_train[i] = None
 
             try:
@@ -68,12 +69,12 @@ def test_syntetic_weak(mode):
 
                 results[dataset - 1, j] = compute_error(h_test, h_pred)
 
-                print 'dataset=%d, nfull=%d, error=%f' % (dataset,
+                print('dataset=%d, nfull=%d, error=%f' % (dataset,
                                                           nfull,
-                                                          results[dataset - 1, j])
+                                                          results[dataset - 1, j]))
             except ValueError:
                 # bad QP
-                print 'dataset=%d, nfull=%d: Failed' % (dataset, nfull)
+                print('dataset=%d, nfull=%d: Failed' % (dataset, nfull))
 
     if mode == 'latent':
         np.savetxt('results/weak_labeled.csv', results, delimiter=',')
@@ -100,7 +101,7 @@ def split_test_train(X, Y, n_full, n_train):
     return x_train, y_train, y_train_full, x_test, y_test
 
 
-@experiment
+#@experiment
 def syntetic_weak(n_full=10, n_train=200, C=0.1, dataset=1, latent_iter=15,
                   max_iter=500, inner_tol=0.001, outer_tol=0.01, min_changes=0,
                   initialize=True, alpha=0.1, n_inference_iter=5,
@@ -129,11 +130,11 @@ def syntetic_weak(n_full=10, n_train=200, C=0.1, dataset=1, latent_iter=15,
     test_score = clf.score(x_test, y_test)
     time_elapsed = stop - start
 
-    print '============================================================'
-    print 'Score on train set: %f' % train_score
-    print 'Score on test set: %f' % test_score
-    print 'Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w)
-    print 'Elapsed time: %f s' % time_elapsed
+    print('============================================================')
+    print('Score on train set: %f' % train_score)
+    print('Score on test set: %f' % test_score)
+    print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
+    print('Elapsed time: %f s' % time_elapsed)
 
     test_scores = []
     for score in clf.staged_score(x_test, y_test):
@@ -162,7 +163,8 @@ def msrc_load(n_full, n_train):
     Ytest = [Label(y[:, 0].astype(np.int32), None, y[:, 1], True)
              for y in Ytest]
 
-    train_mask = load_msrc_weak_train_mask(MSRC_DATA_PATH, n_full)[:n_train]
+    #train_mask = load_msrc_weak_train_mask(MSRC_DATA_PATH, n_full)[:n_train]
+    train_mask = [True] * 276
     Ytrain_full = [Label(y[:, 0].astype(np.int32), None, y[:, 1], True)
                    for y in Ytrain_raw]
     Ytrain = []
@@ -177,24 +179,23 @@ def msrc_load(n_full, n_train):
     return Xtrain, Ytrain, Ytrain_full, Xtest, Ytest
 
 
-@experiment
-def msrc_weak(n_full=20, n_train=276, C=100, latent_iter=25,
-              max_iter=500, inner_tol=0.001, outer_tol=0.01, min_changes=0,
+#@experiment
+def msrc_fw_weak(n_full=20, n_train=276, C=100, latent_iter=25,
+              max_iter=1000, inner_tol=0.001, outer_tol=0.01, min_changes=0,
               initialize=True, alpha=0.1, n_inference_iter=5,
               inactive_window=50, inactive_threshold=1e-5):
     meta_data = locals()
 
     crf = HCRF(n_states=24, n_features=2028, n_edge_features=4, alpha=alpha,
                inference_method='gco', n_iter=n_inference_iter)
-    base_clf = OneSlackSSVM(crf, max_iter=max_iter, C=C, verbose=0,
-                            tol=inner_tol, n_jobs=4, inference_cache=0,
-                            inactive_window=inactive_window,
-                            inactive_threshold=inactive_threshold)
+    base_clf = FrankWolfeSSVM(crf, max_iter=max_iter, C=C, verbose=2,
+                            tol=inner_tol, n_jobs=4)
     clf = LatentSSVM(base_clf, latent_iter=latent_iter, verbose=2,
                      tol=outer_tol, min_changes=min_changes, n_jobs=4)
 
     Xtrain, Ytrain, Ytrain_full, Xtest, Ytest = msrc_load(n_full, n_train)
 
+    base_clf.setTest(Xtest, Ytest, Ytrain_full)
     start = time()
     clf.fit(Xtrain, Ytrain, initialize=initialize)
     stop = time()
@@ -203,11 +204,69 @@ def msrc_weak(n_full=20, n_train=276, C=100, latent_iter=25,
     test_score = clf.score(Xtest, Ytest)
     time_elapsed = stop - start 
 
-    print '============================================================'
-    print 'Score on train set: %f' % train_score
-    print 'Score on test set: %f' % test_score
-    print 'Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w)
-    print 'Elapsed time: %f s' % time_elapsed
+    print('============================================================')
+    print('Score on train set: %f' % train_score)
+    print('Score on test set: %f' % test_score)
+    print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
+    print('Elapsed time: %f s' % time_elapsed)
+
+    test_scores = []
+    for score in clf.staged_score(Xtest, Ytest):
+        test_scores.append(score)
+
+    train_scores = []
+    for score in clf.staged_score(Xtrain, Ytrain_full):
+        train_scores.append(score)
+
+    exp_data = clf._get_data()
+    exp_data['test_scores'] = np.array(test_scores)
+    exp_data['train_scores'] = np.array(train_scores)
+
+    meta_data['dataset_name'] = 'msrc'
+    meta_data['annotation_type'] = 'image-level labelling'
+    meta_data['label_type'] = 'full+weak'
+    meta_data['train_score'] = train_score
+    meta_data['test_score'] = test_score
+    meta_data['time_elapsed'] = time_elapsed
+    
+    import pickle
+    
+    pickle.dump(base_clf, open('fw1000.p', 'bw'))
+
+    return (exp_data, meta_data, base_clf)
+    
+
+def msrc_weak(n_full=20, n_train=276, C=100, latent_iter=25,
+              max_iter=2500, inner_tol=0.001, outer_tol=0.01, min_changes=0,
+              initialize=True, alpha=0.1, n_inference_iter=5,
+              inactive_window=50, inactive_threshold=1e-5):
+    meta_data = locals()
+
+    crf = HCRF(n_states=24, n_features=2028, n_edge_features=4, alpha=alpha,
+               inference_method='gco', n_iter=n_inference_iter)
+    base_clf = OneSlackSSVM(crf, max_iter=max_iter, C=C, verbose=2,
+                            tol=inner_tol, n_jobs=4, inference_cache=100,
+                            inactive_window=inactive_window,
+                            inactive_threshold=inactive_threshold)
+    clf = LatentSSVM(base_clf, latent_iter=latent_iter, verbose=2,
+                     tol=outer_tol, min_changes=min_changes, n_jobs=4)
+
+    Xtrain, Ytrain, Ytrain_full, Xtest, Ytest = msrc_load(n_full, n_train)
+
+    base_clf.setTest(Xtest, Ytest, Ytrain_full)
+    start = time()
+    clf.fit(Xtrain, Ytrain, initialize=initialize)
+    stop = time()
+
+    train_score = clf.score(Xtrain, Ytrain_full)
+    test_score = clf.score(Xtest, Ytest)
+    time_elapsed = stop - start 
+
+    print('============================================================')
+    print('Score on train set: %f' % train_score)
+    print('Score on test set: %f' % test_score)
+    print('Norm of weight vector: |w|=%f' % np.linalg.norm(clf.w))
+    print('Elapsed time: %f s' % time_elapsed)
 
     test_scores = []
     for score in clf.staged_score(Xtest, Ytest):
@@ -228,4 +287,5 @@ def msrc_weak(n_full=20, n_train=276, C=100, latent_iter=25,
     meta_data['test_score'] = test_score
     meta_data['time_elapsed'] = time_elapsed
 
-    return ExperimentResult(exp_data, meta_data)
+
+    return (exp_data, meta_data, base_clf)

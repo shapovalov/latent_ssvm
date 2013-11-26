@@ -44,7 +44,7 @@ class ExperimentResult(object):
     def save_data(self):
         f = h5py.File(path_to_datafile, 'a', libver='latest')
         grp = f[self.meta['dataset_name']].create_group(self.meta['id'])
-        for k in self.data.keys():
+        for k in list(self.data.keys()):
             grp.create_dataset(k, data=self.data[k])
         f.close()
         return grp.id.id
@@ -65,9 +65,9 @@ class ExperimentResult(object):
         client = MongoClient()
         meta = client['lSSVM']['base'].find_one({'id' : exp_id})
         f = h5py.File(path_to_datafile, 'r', libver='latest')
-        grp = f[meta[u'dataset_name']][exp_id]
+        grp = f[meta['dataset_name']][exp_id]
         data = {}
-        for k in grp.keys():
+        for k in list(grp.keys()):
             data[k] = np.empty(grp[k].shape)
             grp[k].read_direct(data[k])
         f.close()

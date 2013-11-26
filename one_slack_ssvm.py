@@ -145,6 +145,8 @@ class OneSlackSSVM(BaseSSVM):
         self.switch_to = switch_to
         self.qp_time = 0
         self.inference_time = 0
+        self.testX_ = None
+        self.testY_ = None
 
     def _solve_1_slack_qp(self, constraints, n_samples):
         C = np.float(self.C) * n_samples  # this is how libsvm/svmstruct do it
@@ -191,8 +193,8 @@ class OneSlackSSVM(BaseSSVM):
             #initvals = {}
         #solution = cvxopt.solvers.qp(P, q, G, h, A, b, initvals=initvals)
 
-        import mosek
-        cvxopt.solvers.options['MOSEK'] = {mosek.iparam.log: 0}
+        #import mosek
+        #cvxopt.solvers.options['MOSEK'] = {mosek.iparam.log: 0}
 
         start_time = time()
         try:
@@ -216,8 +218,8 @@ class OneSlackSSVM(BaseSSVM):
         # Support vectors have non zero lagrange multipliers
         sv = a > self.inactive_threshold * C
         if self.verbose > 1:
-            print("%d support vectors out of %d points" % (np.sum(sv),
-                                                           n_constraints))
+            print(("%d support vectors out of %d points" % (np.sum(sv),
+                                                           n_constraints)))
         self.w = np.dot(a, psi_matrix)
         # we needed to flip the sign to make the dual into a minimization
         # model
@@ -250,8 +252,8 @@ class OneSlackSSVM(BaseSSVM):
                               old_constraints, break_on_bad, tol=None):
         violation_difference = violation - self.last_slack_
         if self.verbose > 1:
-            print("New violation: %f difference to last: %f"
-                  % (violation, violation_difference))
+            print(("New violation: %f difference to last: %f"
+                  % (violation, violation_difference)))
         if violation_difference < 0 and violation > 0 and break_on_bad:
             raise ValueError("Bad inference: new violation is smaller than"
                              " old.")
@@ -272,12 +274,12 @@ class OneSlackSSVM(BaseSSVM):
                 # compute violation for old constraint
                 violation_tmp = max(con[1] - np.dot(self.w, con[0]), 0)
                 if self.verbose > 5:
-                    print("violation old constraint: %f" % violation_tmp)
+                    print(("violation old constraint: %f" % violation_tmp))
                 # if violation of new constraint is smaller or not
                 # significantly larger, don't add constraint.
                 # if smaller, complain about approximate inference.
                 if violation - violation_tmp < -1e-5:
-                    print("bad inference: %f" % (violation_tmp - violation))
+                    print(("bad inference: %f" % (violation_tmp - violation)))
                     if break_on_bad:
                         raise ValueError("Bad inference: new violation is"
                                          " weaker than previous constraint.")
@@ -315,8 +317,8 @@ class OneSlackSSVM(BaseSSVM):
         if (self.cache_tol == 'auto' and gap < self.cache_tol_):
             # do inference if gap has become to small
             if self.verbose > 1:
-                print("Last gap too small (%f < %f), not loading constraint from cache."
-                      % (gap, self.cache_tol_))
+                print(("Last gap too small (%f < %f), not loading constraint from cache."
+                      % (gap, self.cache_tol_)))
             raise NoConstraint
 
         Y_hat = []
@@ -370,6 +372,34 @@ class OneSlackSSVM(BaseSSVM):
                 break_on_bad=self.break_on_bad):
             raise NoConstraint
         return Y_hat, dpsi, loss_mean
+        
+    def score(self, X, Y):
+        """Compute score as 1 - loss over whole data set.
+
+        Returns the average accuracy (in terms of model.loss)
+        over X and Y.
+
+        Parameters
+        ----------
+        X : iterable
+            Evaluation data.
+
+        Y : iterable
+            True labels.
+
+        Returns
+        -------
+        score : float
+            Average of 1 - loss over training examples.
+        """
+        losses = [self.model.loss(y, y_pred) / float(np.sum(y.weights))
+                  for y, y_pred in zip(Y, self.predict(X))]
+        return 1. - np.sum(losses) / float(len(X))
+        
+    def setTest(self, testX, testY, trainY):
+        self.testX_ = testX
+        self.testY_ = testY
+        self.trainY_ = trainY
 
     def fit(self, X, Y, constraints=None, warm_start=False, initialize=True):
         """Learn parameters using cutting plane method.
@@ -410,6 +440,7 @@ class OneSlackSSVM(BaseSSVM):
             constraints = []
             self.objective_curve_, self.primal_objective_curve_ = [], []
             self.cached_constraint_ = []
+            self.test_score_, self.train_score_ = [], []
             self.alphas = []  # dual solutions
             # append constraint given by ground truth to make our life easier
             constraints.append((np.zeros(self.model.size_psi), 0))
@@ -441,11 +472,11 @@ class OneSlackSSVM(BaseSSVM):
         try:
             # catch ctrl+c to stop training
 
-            for iteration in xrange(self.max_iter):
+            for iteration in range(self.max_iter):
                 # main loop
                 cached_constraint = False
                 if self.verbose > 0:
-                    print("iteration %d" % iteration)
+                    print(("iteration %d" % iteration))
                 if self.verbose > 2:
                     print(self)
                 try:
@@ -464,8 +495,8 @@ class OneSlackSSVM(BaseSSVM):
                                 and self.model.inference_method !=
                                 self.switch_to):
                             if self.verbose:
-                                print("Switching to %s inference" %
-                                      str(self.switch_to))
+                                print(("Switching to %s inference" %
+                                      str(self.switch_to)))
                             self.model.inference_method_ = \
                                 self.model.inference_method
                             self.model.inference_method = self.switch_to
@@ -484,6 +515,13 @@ class OneSlackSSVM(BaseSSVM):
                                     + np.sum(self.w ** 2) / 2)
                 self.primal_objective_curve_.append(primal_objective)
                 self.cached_constraint_.append(cached_constraint)
+                
+                if iteration % 50 == 0 and self.testX_ is not None:
+                    test_score = self.score(self.testX_, self.testY_)
+                    train_score = self.score(X, self.trainY_)
+                    self.train_score_.append(train_score)
+                    self.test_score_.append(test_score)
+                  
 
                 objective = self._solve_1_slack_qp(constraints,
                                                    n_samples=len(X))
@@ -499,8 +537,8 @@ class OneSlackSSVM(BaseSSVM):
                 if self.verbose > 0:
                     # the cutting plane objective can also be computed as
                     # self.C * len(X) * self.last_slack_ + np.sum(self.w**2)/2
-                    print("cutting plane objective: %f, primal objective %f"
-                          % (objective, primal_objective))
+                    print(("cutting plane objective: %f, primal objective %f"
+                          % (objective, primal_objective)))
                 # we only do this here because we didn't add the gt to the
                 # constraints, which makes the dual behave a bit oddly
                 self.objective_curve_.append(objective)
@@ -509,11 +547,11 @@ class OneSlackSSVM(BaseSSVM):
                     self.logger(self, iteration)
 
                 if self.verbose > 5:
-                    print(self.w)
+                    print((self.w))
         except KeyboardInterrupt:
             pass
         if self.verbose and self.n_jobs == 1:
-            print("calls to inference: %d" % self.model.inference_calls)
+            print(("calls to inference: %d" % self.model.inference_calls))
         # compute final objective:
         self.timestamps_.append(time() - self.timestamps_[0])
         primal_objective = self._objective(X, Y)
@@ -525,7 +563,7 @@ class OneSlackSSVM(BaseSSVM):
             self.logger(self, 'final')
 
         if self.verbose > 0:
-            print("final primal objective: %f gap: %f"
-                  % (primal_objective, primal_objective - objective))
+            print(("final primal objective: %f gap: %f"
+                  % (primal_objective, primal_objective - objective)))
 
         return self

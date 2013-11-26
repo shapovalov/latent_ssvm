@@ -146,7 +146,7 @@ class HCRF(StructuredModel):
             # should use Kappa here
             loss = 0
             c = np.sum(y.weights) / float(self.n_states)
-            for label in xrange(0, self.n_states):
+            for label in range(0, self.n_states):
                 if label in y.weak and not np.any(y_hat.full == label):
                     loss += c
                 elif label not in y.weak:
@@ -182,7 +182,7 @@ class HCRF(StructuredModel):
             c = np.sum(y.weights) / float(self.n_states)
             for label in y.weak:
                 label_cost[label] = c
-            for label in xrange(0, self.n_states):
+            for label in range(0, self.n_states):
                 if label not in y.weak:
                     unary_potentials[:, label] += y.weights
 
@@ -191,7 +191,7 @@ class HCRF(StructuredModel):
                 np.int32)
 
             pairwise_cost = {}
-            for i in xrange(0, edges.shape[0]):
+            for i in range(0, edges.shape[0]):
                 cost = pairwise_potentials[i, 0, 0]
                 if cost >= 0:
                     pairwise_cost[(edges[i, 0], edges[i, 1])] = cost
